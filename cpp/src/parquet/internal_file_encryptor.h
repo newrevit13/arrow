@@ -23,6 +23,7 @@
 #include <string>
 
 #include "parquet/schema.h"
+#include "parquet/encryption.h"
 
 namespace parquet_encryption {
 class AesEncryptor;
@@ -31,6 +32,7 @@ class AesEncryptor;
 namespace parquet {
 
 class FileEncryptionProperties;
+class ColumnEncryptionProperties;
 
 class Encryptor {
  public:
@@ -41,6 +43,15 @@ class Encryptor {
 
   int CiphertextSizeDelta();
   int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* ciphertext);
+
+  bool encryptColumnMetaData(
+     FileEncryptionProperties* file_encryption_properties,
+     std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties) {
+    if (!column_encryption_properties || !column_encryption_properties->is_encrypted())
+      return false;
+    if (!file_encryption_properties->encrypted_footer()) return true;
+    return !column_encryption_properties->is_encrypted_with_footer_key();
+  }
 
  private:
   parquet_encryption::AesEncryptor* aes_encryptor_;

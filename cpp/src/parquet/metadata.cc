@@ -883,6 +883,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     ThriftSerializer serializer;
     const auto& encrypt_md = properties_->column_encryption_properties(column_->path());
 
+    bool encrypt_metadata = false;
     // column is unencrypted
     if (!encrypt_md || !encrypt_md->is_encrypted()) {
       column_chunk_->__isset.meta_data = true;
@@ -890,11 +891,14 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
       serializer.Serialize(column_chunk_, sink);
     } else {  // column is encrypted
+      encrypt_metadata = encryptor->encryptColumnMetaData(
+          properties_->file_encryption_properties(),
+          properties_->column_encryption_properties(column_->path()));
       column_chunk_->__isset.crypto_metadata = true;
 
-      // encrypted with footer key
       format::ColumnCryptoMetaData ccmd;
       if (encrypt_md->is_encrypted_with_footer_key()) {
+        // encrypted with footer key
         ccmd.__isset.ENCRYPTION_WITH_FOOTER_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_FOOTER_KEY(format::EncryptionWithFooterKey());
       } else {  // encrypted with column key
@@ -909,10 +913,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       DCHECK(properties_->file_encryption_properties());
       auto footer_key = properties_->file_encryption_properties()->footer_key();
 
-      // non-uniform: footer is unencrypted, or column is encrypted with a column-specific
-      // key
-      if ((footer_key.empty() && encrypt_md->is_encrypted()) ||
-          !encrypt_md->is_encrypted_with_footer_key()) {
+      if (!encrypt_metadata) {
+        column_chunk_->__isset.meta_data = true;
+        column_chunk_->__set_meta_data(column_metadata_);
+      } else {   // Serialize and encrypt ColumnMetadata separately
         // Thrift-serialize the ColumnMetaData structure,
         // encrypt it with the column key, and write to encrypted_column_metadata
         uint8_t* serialized_data;
@@ -930,7 +934,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         std::string encrypted_column_metadata(temp, encrypted_len);
         column_chunk_->__set_encrypted_column_metadata(encrypted_column_metadata);
         // Keep redacted metadata version for old readers
-        if (footer_key.empty()) {
+        if (!properties_->file_encryption_properties()->encrypted_footer()) {
           format::ColumnMetaData metadata_redacted = column_metadata_;
           if (metadata_redacted.__isset.statistics) {
             metadata_redacted.__isset.statistics = false;
@@ -940,15 +944,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
           }
           column_chunk_->__isset.meta_data = true;
           column_chunk_->__set_meta_data(metadata_redacted);
-        } else {
-          // don't set meta_data
-          column_chunk_->__isset.meta_data = true;
         }
-      } else {
-        column_chunk_->__isset.meta_data = true;
-        column_chunk_->__set_meta_data(column_metadata_);
       }
-
       serializer.Serialize(column_chunk_, sink);
     }
   }
