@@ -36,22 +36,12 @@
  *
  * The example contains reading four columns with the following different encryption
  * configurations:
- *  - Test 1:   Decrypt two encrypted columns and encrypted footer. The encryption was
- *              done using parquet-cpp.
  *  - Test 2:   Decrypt two columns and the footer. The encryption was done using parquet-mr.
- *  - Test 3:   Decrypt parquet file with two encrypted columns and encrypted footer. 
- *              The decryption is done without providing key for one column. 
- *              The encryption was done using parquet-cpp.
  *  - Test 4:   Decrypt parquet file with two encrypted columns and encrypted footer. 
  *              The decryption is done without providing key for one column. 
  *              The encryption was done using parquet-mr.
- *  - Test 6 -  Decrypt two encrypted columns and encrypted footer. 
- *              The encryption was done using parquet-cpp with aad_prefix.
  *  - Test 7 -  Decrypt two encrypted columns and encrypted footer. 
  *              The encryption was done using parquet-mr with aad_prefix.
- *  - Test 8 -  Decrypt two encrypted columns and encrypted footer. 
- *              The encryption was *done using parquet-cpp
- *              with aad_prefix and disable_store_aad_prefix_storage.
  *  - Test 10 - Decrypt two encrypted columns and encrypted footer. 
  *              The encryption was done using parquet-cpp with_GCM_CTR_V1 algorithm.
  * 
@@ -85,15 +75,6 @@ int main(int argc, char** argv) {
 
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
       vector_of_decryption_configurations;
-
-  // Test #1 - Decrypt two columns and the footer. The parquet file was genrated using
-  // parquet-cpp
-  testsNumber[numTests++] = 1;
-
-  parquet::FileDecryptionProperties::Builder file_decryption_builder_1;
-  vector_of_decryption_configurations.push_back(
-      file_decryption_builder_1.key_retriever(kr)->build());
-
   // Test #2 - Decrypt two columns and the footer. The parquet file was genrated using
   // parquet-mr
   testsNumber[numTests++] = 2;
@@ -108,12 +89,6 @@ int main(int argc, char** argv) {
   string_kr_hidden_column->PutKey("kc1", COLUMN_ENCRYPTION_KEY1);
   std::shared_ptr<parquet::DecryptionKeyRetriever> kr_hidden_column =
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr_hidden_column);
-  // Test #3 - Decrypt two columns and the footer. The parquet file was genrated using
-  // parquet-cpp
-  testsNumber[numTests++] = 3;
-  parquet::FileDecryptionProperties::Builder file_decryption_builder_3;
-  vector_of_decryption_configurations.push_back(
-      file_decryption_builder_3.key_retriever(kr_hidden_column)->build());
 
   // Test #4 - Decrypt two columns and the footer. The parquet file was genrated using
   // parquet-mr
@@ -123,26 +98,12 @@ int main(int argc, char** argv) {
   vector_of_decryption_configurations.push_back(
       file_decryption_builder_4.key_retriever(kr_hidden_column)->build());
 
-  // Test #6 - Decrypt two columns and the footer. The parquet file was genrated using
-  // parquet-cpp with AADprefix
-  testsNumber[numTests++] = 6;
-  parquet::FileDecryptionProperties::Builder file_decryption_builder_6;
-  vector_of_decryption_configurations.push_back(
-      file_decryption_builder_6.key_retriever(kr)->build());
-
   // Test #7 - Decrypt two columns and the footer. The parquet file was genrated using
   // parquet-mr with AADprefix
   testsNumber[numTests++] = 7;
   parquet::FileDecryptionProperties::Builder file_decryption_builder_7;
   vector_of_decryption_configurations.push_back(
       file_decryption_builder_7.key_retriever(kr)->build());
-
-  // Test #8 - Decrypt two columns and the footer. The parquet file was genrated using
-  // parquet-cpp with AADprefix and disable_store_aad_prefix_storage
-  testsNumber[numTests++] = 8;
-  parquet::FileDecryptionProperties::Builder file_decryption_builder_8;
-  vector_of_decryption_configurations.push_back(
-      file_decryption_builder_8.key_retriever(kr)->aad_prefix(fileName)->build());
 
   // Test #10 - Decrypt two columns and the footer. The parquet file was genrated using
   // parquet-cpp with gcm_ctr algotithm
