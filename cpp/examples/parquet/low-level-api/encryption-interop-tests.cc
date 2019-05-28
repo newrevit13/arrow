@@ -93,30 +93,34 @@ std::vector<std::string> GetDirectoryFiles(const std::string& path) {
 }
 
 void PrintEncryptionConfiguration(int configuration) {
+  std::cout << "\n\nDecryption configuration ";
   if (configuration == 1)
-    std::cout << "Decryption configuration 1: Decrypt using key retriever that holds the "
-                 "keys of two encrypted columns and the footer key."
+    std::cout << "1: \n\nDecrypt using key retriever that holds"
+                 " the keys of two encrypted columns and the footer key."
               << std::endl;
   else if (configuration == 2)
-    std::cout << "Decryption configuration 2: Decrypt using key retriever that holds the "
-                 "keys of two encrypted columns and the footer key. Pass aad_prefix."
+    std::cout << "2: \n\nDecrypt using key retriever that holds"
+                 " the keys of two encrypted columns and the footer key. Pass aad_prefix."
               << std::endl;
   else if (configuration == 3)
-    std::cout << "Decryption configuration 3: Decrypt using key retriever that holds the "
-                 "key of one encrypted column and the footer key. Pass aad_prefix."
+    std::cout << "3: \n\nDecrypt using key retriever that holds"
+                 " the key of one encrypted column and the footer key. Pass aad_prefix."
               << std::endl;
   else if (configuration == 4)
-    std::cout << "Decryption configuration 4: Decrypt using column decryption "
+    std::cout << "4: \n\nDecrypt using column decryption "
                  "properties. Pass aad_prefix."
               << std::endl;
-  else
+  else {
     std::cout << "Unknown configuraion" << std::endl;
+    exit(-1);
+  }
+  std::cout << std::endl;
 }
 
 void InteropReadTests(std::string rootPath) {
   std::vector<std::string> files_in_directory = GetDirectoryFiles(rootPath);
   // Decryption configuration 1: Decrypt using key retriever that holds the keys of two
-  //                                encrypted columns and the footer key.
+  // encrypted columns and the footer key.
 
   std::shared_ptr<parquet::StringKeyIdRetriever> string_kr =
       std::make_shared<parquet::StringKeyIdRetriever>();
@@ -134,13 +138,13 @@ void InteropReadTests(std::string rootPath) {
       file_decryption_builder_1.key_retriever(kr)->build());
 
   // Decryption configuration 2: Decrypt using key retriever that holds the keys of two
-  //                                encrypted columns and the footer key. Pass aad_prefix.
+  // encrypted columns and the footer key. Pass aad_prefix.
   parquet::FileDecryptionProperties::Builder file_decryption_builder_2;
   vector_of_decryption_configurations.push_back(
       file_decryption_builder_2.key_retriever(kr)->aad_prefix(fileName)->build());
 
   // Decryption configuration 3: Decrypt using key retriever that holds the key of one
-  //                                encrypted column and the footer key. Pass aad_prefix.
+  // encrypted column and the footer key. Pass aad_prefix.
 
   std::shared_ptr<parquet::StringKeyIdRetriever> string_kr_hidden_column =
       std::make_shared<parquet::StringKeyIdRetriever>();
@@ -155,9 +159,8 @@ void InteropReadTests(std::string rootPath) {
           ->aad_prefix(fileName)
           ->build());
 
-  //  - Decryption configuration 4: Decrypt using column decryption properties. Pass
-  //                                aad_prefix.
-
+  // Decryption configuration 4: Decrypt using column decryption properties. Pass
+  // aad_prefix.
   std::shared_ptr<parquet::schema::ColumnPath> path_float_ptr =
       parquet::schema::ColumnPath::FromDotString("float_field");
   std::shared_ptr<parquet::schema::ColumnPath> path_double_ptr =
@@ -186,12 +189,12 @@ void InteropReadTests(std::string rootPath) {
   **********************************************************************************/
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations.size();
        ++example_id) {
+    PrintEncryptionConfiguration(example_id + 1);
     for (auto const& file : files_in_directory) {
       if (file.find("parquet.encrypted") == std::string::npos)  // Skip non parquet files
         continue;
       try {
-        std::cout << "--> Read file " << file << " " << std::endl;
-        PrintEncryptionConfiguration(example_id + 1);
+        std::cout << "--> Read file " << file << std::endl;
 
         parquet::ReaderProperties reader_properties =
             parquet::default_reader_properties();
