@@ -29,44 +29,49 @@
  * to be used for iterop testing.
  *
  * The tests use encryption configurations that cover the basic encryption modes.
- * More configurations are excpeted to be added.
+ * More configurations are expected to be added.
  *
- * The write tests produce number of encrypted parquet files that can be read by java
- * parquet-mr version which supports encryption. Each file is encrypted with different
- * encryption configuration as described below. The name of each parquet file produced
- * is in the form of tester<test number>.parquet.encrypted. For example, for test number
- * 1 tester1.parquet.encrypted file will be generated.
+ * The write test produces number of encrypted parquet files that can be read by java
+ * parquet-mr version which supports encryption. Each produced file is encrypted with
+ * different encryption configuration as described below.
+ * The name of each parquet file produced is in the form of
+ * tester<test number>.parquet.encrypted.
  *
- * To read the encrypted parquet files produced by java parquet-mr version several
- * encryption configurations are applied on all the encrypted files.
- * The different encryption configurations are listed below.
+ * The read test creates a set of decryption configurations and then uses each of them to
+ * read all encrypted files in input directory.
  *
- * Usage: ./encrytion-interop-tests <write/read> <path-to-directory-of-parquet-files>
+ * The different encryption and decryption configurations are listed below.
+ *
+ * Usage: ./encryption-interop-tests <write/read> <path-to-directory-of-parquet-files>
  *
  * A detailed description of the Parquet Modular Encryption specification can be found
  * here:
  * https://github.com/apache/parquet-format/blob/encryption/Encryption.md
  *
- * The write tests contain writing four columns with the following different encryption
- * configurations:
- *  - Test 1:   Encrypt all columns and the footer with the same key. (uniform
- *              encryption)
- *  - Test 2:   Encrypt two columns and the footer.
- *  - Test 3:   Encrypt two columns and footer. Use plaintext footer mode.
- *  - Test 4 -  Encrypt two columns and the footer. Use aad_prefix.
- *  - Test 5 -  Encrypt two columns and the footer. Use aad_prefix and
- *              disable_aad_prefix_storage.
- *  - Test 6 - Encrypt two columns and the footer. Use AES_GCM_CTR_V1 algorithm.
+ * The write test write files with four columns with the following different 
+ * encryption configurations:
+ * 
+ *  - Encryption configuration 1:   Encrypt all columns and the footer with the same key.
+ *                                  (uniform encryption)
+ *  - Encryption configuration 2:   Encrypt two columns and the footer.
+ *  - Encryption configuration 3:   Encrypt two columns. Use plaintext footer mode.
+ *  - Encryption configuration 4:   Encrypt two columns and the footer. Use aad_prefix.
+ *  - Encryption configuration 5:   Encrypt two columns and the footer. Use aad_prefix and
+ *                                  disable_aad_prefix_storage.
+ *  - Encryption configuration 6:   Encrypt two columns and the footer. Use AES_GCM_CTR_V1
+ *                                  algorithm.
  *
- * The read tests use the following decryption configurations to read all encrypted
- * files in input directory:
+ * The read test uses each of the following decryption configurations to read all
+ * encrypted files in input directory:
+ * 
  *  - Decryption configuration 1: Decrypt using key retriever that holds the keys of two
  *                                encrypted columns and the footer key.
  *  - Decryption configuration 2: Decrypt using key retriever that holds the keys of two
  *                                encrypted columns and the footer key. Pass aad_prefix.
- *  - Decryption configuration 3: Decrypt using key retriever that holds the key of one
- *                                encrypted column and the footer key. Pass aad_prefix.
- *  - Decryption configuration 4: Decrypt using column decryption properties. Pass
+ *  - Decryption configuration 3: Decrypt using key retriever that holds the key of only
+ *                                one encrypted column and the footer key.
+ *                                Pass aad_prefix.
+ *  - Decryption configuration 4: Decrypt using explict keys. Pass
  *                                aad_prefix.
  **/
 
@@ -92,7 +97,7 @@ std::vector<std::string> GetDirectoryFiles(const std::string& path) {
   return files;
 }
 
-void PrintEncryptionConfiguration(int configuration) {
+void PrintDecryptionConfiguration(int configuration) {
   std::cout << "\n\nDecryption configuration ";
   if (configuration == 1)
     std::cout << "1: \n\nDecrypt using key retriever that holds"
@@ -117,8 +122,246 @@ void PrintEncryptionConfiguration(int configuration) {
   std::cout << std::endl;
 }
 
-void InteropReadTests(std::string rootPath) {
+void InteropTestwriteEncryptedParquetFiles(std::string rootPath) {
+  std::vector<std::shared_ptr<parquet::FileEncryptionProperties>>
+      vector_of_encryption_configurations;
+  int testsNumber[10];
+  int numTests = 0;
+
+  /**********************************************************************************
+                               Setting Encryption configurations
+   **********************************************************************************/
+
+  // Encryption configuration 1: Encrypt all columns and the footer with the same key.
+  // (uniform encryption)
+  testsNumber[numTests++] = 1;
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_1(
+      kFooterEncryptionKey);
+  vector_of_encryption_configurations.push_back(
+      file_encryption_builder_1.footer_key_metadata("kf")->build());
+
+  // Encryption configuration 2: Encrypt two columns and the footer
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath>
+      encryption_cols2;
+  std::shared_ptr<parquet::schema::ColumnPath> path_ptr =
+      parquet::schema::ColumnPath::FromDotString("double_field");
+  std::shared_ptr<parquet::schema::ColumnPath> path_ptr1 =
+      parquet::schema::ColumnPath::FromDotString("float_field");
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_20(path_ptr);
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21(path_ptr1);
+  encryption_col_builder_20.key(kColumnEncryptionKey1)->key_id("kc1");
+  encryption_col_builder_21.key(kColumnEncryptionKey2)->key_id("kc2");
+
+  encryption_cols2[path_ptr] = encryption_col_builder_20.build();
+  encryption_cols2[path_ptr1] = encryption_col_builder_21.build();
+
+  testsNumber[numTests++] = 2;
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_2(
+      kFooterEncryptionKey);
+
+  vector_of_encryption_configurations.push_back(
+      file_encryption_builder_2.footer_key_metadata("kf")
+          ->column_properties(encryption_cols2)
+          ->build());
+
+  // Encryption configuration 3: Encrypt two columns and footer. Use plaintext footer mode
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath>
+      encryption_cols3;
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_30(path_ptr);
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_31(path_ptr1);
+  encryption_col_builder_30.key(kColumnEncryptionKey1)->key_id("kc1");
+  encryption_col_builder_31.key(kColumnEncryptionKey2)->key_id("kc2");
+
+  encryption_cols3[path_ptr] = encryption_col_builder_30.build();
+  encryption_cols3[path_ptr1] = encryption_col_builder_31.build();
+  testsNumber[numTests++] = 3;
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_3(
+      kFooterEncryptionKey);
+
+  vector_of_encryption_configurations.push_back(
+      file_encryption_builder_3.footer_key_metadata("kf")
+          ->column_properties(encryption_cols3)
+          ->set_plaintext_footer()
+          ->build());
+
+  // Encryption configuration 4: Encrypt two columns and the footer. Use aad_prefix.
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath>
+      encryption_cols4;
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_40(path_ptr);
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_41(path_ptr1);
+  encryption_col_builder_40.key(kColumnEncryptionKey1)->key_id("kc1");
+  encryption_col_builder_41.key(kColumnEncryptionKey2)->key_id("kc2");
+
+  encryption_cols4[path_ptr] = encryption_col_builder_40.build();
+  encryption_cols4[path_ptr1] = encryption_col_builder_41.build();
+  testsNumber[numTests++] = 4;
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_4(
+      kFooterEncryptionKey);
+
+  vector_of_encryption_configurations.push_back(
+      file_encryption_builder_4.footer_key_metadata("kf")
+          ->column_properties(encryption_cols4)
+          ->aad_prefix(fileName)
+          ->build());
+
+  // Encryption configuration 5: Encrypt two columns and the footer. Use aad_prefix and
+  // disable_aad_prefix_storage.
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath>
+      encryption_cols5;
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_50(path_ptr);
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_51(path_ptr1);
+  encryption_col_builder_50.key(kColumnEncryptionKey1)->key_id("kc1");
+  encryption_col_builder_51.key(kColumnEncryptionKey2)->key_id("kc2");
+
+  encryption_cols5[path_ptr] = encryption_col_builder_50.build();
+  encryption_cols5[path_ptr1] = encryption_col_builder_51.build();
+  testsNumber[numTests++] = 5;
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_5(
+      kFooterEncryptionKey);
+
+  vector_of_encryption_configurations.push_back(
+      file_encryption_builder_5.column_properties(encryption_cols5)
+          ->footer_key_metadata("kf")
+          ->aad_prefix(fileName)
+          ->disable_store_aad_prefix_storage()
+          ->build());
+
+  // Encryption configuration 6: Encrypt two columns and the footer. Use AES_GCM_CTR_V1
+  // algorithm.
+  testsNumber[numTests++] = 6;
+  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>,
+           parquet::schema::ColumnPath::CmpColumnPath>
+      encryption_cols6;
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_60(path_ptr);
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_61(path_ptr1);
+  encryption_col_builder_60.key(kColumnEncryptionKey1)->key_id("kc1");
+  encryption_col_builder_61.key(kColumnEncryptionKey2)->key_id("kc2");
+
+  encryption_cols6[path_ptr] = encryption_col_builder_60.build();
+  encryption_cols6[path_ptr1] = encryption_col_builder_61.build();
+  parquet::FileEncryptionProperties::Builder file_encryption_builder_6(
+      kFooterEncryptionKey);
+
+  vector_of_encryption_configurations.push_back(
+      file_encryption_builder_6.footer_key_metadata("kf")
+          ->column_properties(encryption_cols6)
+          ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
+          ->build());
+
+  std::shared_ptr<parquet::StringKeyIdRetriever> string_kr =
+      std::make_shared<parquet::StringKeyIdRetriever>();
+  string_kr->PutKey("kf", kFooterEncryptionKey);
+  string_kr->PutKey("kc1", kColumnEncryptionKey1);
+  string_kr->PutKey("kc2", kColumnEncryptionKey2);
+  std::shared_ptr<parquet::DecryptionKeyRetriever> kr =
+      std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr);
+
+  parquet::FileDecryptionProperties::Builder decryption_properties_builder_0;
+  decryption_properties_builder_0.key_retriever(kr);
+
+  /**********************************************************************************
+                                 PARQUET WRITER EXAMPLE
+   **********************************************************************************/
+
+  // Iterate over the encryption configurations and for each one write a parquet file.
+  for (unsigned example_id = 0; example_id < vector_of_encryption_configurations.size();
+       ++example_id) {
+    std::stringstream ss;
+    ss << testsNumber[example_id];
+    std::string test_number_string = ss.str();
+    std::cout << "Write test " << test_number_string << std::endl;
+    ;
+    try {
+      // Create a local file output stream instance.
+      using FileClass = ::arrow::io::FileOutputStream;
+      std::shared_ptr<FileClass> out_file;
+      std::string file =
+          rootPath + fileName + std::string(test_number_string) + ".parquet.encrypted";
+      PARQUET_THROW_NOT_OK(FileClass::Open(file, &out_file));
+
+      // Setup the parquet schema
+      std::shared_ptr<GroupNode> schema = SetupSchema();
+
+      // Add writer properties
+      parquet::WriterProperties::Builder builder;
+      builder.compression(parquet::Compression::SNAPPY);
+
+      // Add the current encryption configuration to WriterProperties.
+      builder.encryption(vector_of_encryption_configurations[example_id]);
+
+      std::shared_ptr<parquet::WriterProperties> props = builder.build();
+
+      // Create a ParquetFileWriter instance
+      std::shared_ptr<parquet::ParquetFileWriter> file_writer =
+          parquet::ParquetFileWriter::Open(out_file, schema, props);
+
+      // Append a RowGroup with a specific number of rows.
+      parquet::RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+      // Write the Bool column
+      parquet::BoolWriter* bool_writer =
+          static_cast<parquet::BoolWriter*>(rg_writer->NextColumn());
+      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
+        bool value = ((i % 2) == 0) ? true : false;
+        bool_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Write the Int32 column
+      parquet::Int32Writer* int32_writer =
+          static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
+        int32_t value = i;
+        int32_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Write the Float column
+      parquet::FloatWriter* float_writer =
+          static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
+      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
+        float value = static_cast<float>(i) * 1.1f;
+        float_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Write the Double column
+      parquet::DoubleWriter* double_writer =
+          static_cast<parquet::DoubleWriter*>(rg_writer->NextColumn());
+      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
+        double value = i * 1.1111111;
+        double_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Close the ParquetFileWriter
+      std::cout << "file_writer->Close " << std::endl;
+      file_writer->Close();
+
+      // Write the bytes to file
+      DCHECK(out_file->Close().ok());
+    } catch (const std::exception& e) {
+      std::cerr << "Parquet write error: " << e.what() << std::endl;
+      return;
+    }
+  }
+}
+
+void InteropTestReadEncryptedParquetFiles(std::string rootPath) {
   std::vector<std::string> files_in_directory = GetDirectoryFiles(rootPath);
+
+  std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
+      vector_of_decryption_configurations;
+
+  /**********************************************************************************
+                               Setting Decryption configurations
+   **********************************************************************************/
+
   // Decryption configuration 1: Decrypt using key retriever that holds the keys of two
   // encrypted columns and the footer key.
 
@@ -129,9 +372,6 @@ void InteropReadTests(std::string rootPath) {
   string_kr->PutKey("kc2", kColumnEncryptionKey2);
   std::shared_ptr<parquet::DecryptionKeyRetriever> kr =
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr);
-
-  std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
-      vector_of_decryption_configurations;
 
   parquet::FileDecryptionProperties::Builder file_decryption_builder_1;
   vector_of_decryption_configurations.push_back(
@@ -159,7 +399,7 @@ void InteropReadTests(std::string rootPath) {
           ->aad_prefix(fileName)
           ->build());
 
-  // Decryption configuration 4: Decrypt using column decryption properties. Pass
+  // Decryption configuration 4: Decrypt using explicit keys. Pass
   // aad_prefix.
   std::shared_ptr<parquet::schema::ColumnPath> path_float_ptr =
       parquet::schema::ColumnPath::FromDotString("float_field");
@@ -187,9 +427,12 @@ void InteropReadTests(std::string rootPath) {
   /**********************************************************************************
                              PARQUET READER EXAMPLE
   **********************************************************************************/
+
+  // Iterate over the decryption configurations and use each one to read all the files
+  // in the input directory.
   for (unsigned example_id = 0; example_id < vector_of_decryption_configurations.size();
        ++example_id) {
-    PrintEncryptionConfiguration(example_id + 1);
+    PrintDecryptionConfiguration(example_id + 1);
     for (auto const& file : files_in_directory) {
       if (file.find("parquet.encrypted") == std::string::npos)  // Skip non parquet files
         continue;
@@ -324,231 +567,6 @@ void InteropReadTests(std::string rootPath) {
   }
 }
 
-void InteropWriteTests(std::string rootPath) {
-  std::vector<std::shared_ptr<parquet::FileEncryptionProperties>>
-      vector_of_encryption_configurations;
-  int testsNumber[10];
-  int numTests = 0;
-
-  // Test #1 - Encrypt all columns and the footer with the same key. (uniform encryption)
-  testsNumber[numTests++] = 1;
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_1(
-      kFooterEncryptionKey);
-  vector_of_encryption_configurations.push_back(
-      file_encryption_builder_1.footer_key_metadata("kf")->build());
-
-  // Test #2 - Encrypt two columns and the footer
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
-      encryption_cols2;
-  std::shared_ptr<parquet::schema::ColumnPath> path_ptr =
-      parquet::schema::ColumnPath::FromDotString("double_field");
-  std::shared_ptr<parquet::schema::ColumnPath> path_ptr1 =
-      parquet::schema::ColumnPath::FromDotString("float_field");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_20(path_ptr);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21(path_ptr1);
-  encryption_col_builder_20.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_21.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols2[path_ptr] = encryption_col_builder_20.build();
-  encryption_cols2[path_ptr1] = encryption_col_builder_21.build();
-
-  testsNumber[numTests++] = 2;
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_2(
-      kFooterEncryptionKey);
-  // Add the properties to the appropriate configurations vectors
-  vector_of_encryption_configurations.push_back(
-      file_encryption_builder_2.footer_key_metadata("kf")
-          ->column_properties(encryption_cols2)
-          ->build());
-
-  // Test #3 - Encrypt two columns and footer. Use plaintext footer mode
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
-      encryption_cols3;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_30(path_ptr);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_31(path_ptr1);
-  encryption_col_builder_30.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_31.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols3[path_ptr] = encryption_col_builder_30.build();
-  encryption_cols3[path_ptr1] = encryption_col_builder_31.build();
-  testsNumber[numTests++] = 3;
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_3(
-      kFooterEncryptionKey);
-
-  // Add the properties to the appropriate configurations vectors
-  vector_of_encryption_configurations.push_back(
-      file_encryption_builder_3.footer_key_metadata("kf")
-          ->column_properties(encryption_cols3)
-          ->set_plaintext_footer()
-          ->build());
-
-  // Test #4 - Encrypt two columns and the footer. Use aad_prefix.
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
-      encryption_cols4;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_40(path_ptr);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_41(path_ptr1);
-  encryption_col_builder_40.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_41.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols4[path_ptr] = encryption_col_builder_40.build();
-  encryption_cols4[path_ptr1] = encryption_col_builder_41.build();
-  testsNumber[numTests++] = 4;
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_4(
-      kFooterEncryptionKey);
-
-  // Add the properties to the appropriate configurations vectors
-  vector_of_encryption_configurations.push_back(
-      file_encryption_builder_4.footer_key_metadata("kf")
-          ->column_properties(encryption_cols4)
-          ->aad_prefix(fileName)
-          ->build());
-
-  // Test #5 - Encrypt two columns and the footer. Use aad_prefix and
-  // disable_aad_prefix_storage.
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
-      encryption_cols5;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_50(path_ptr);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_51(path_ptr1);
-  encryption_col_builder_50.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_51.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols5[path_ptr] = encryption_col_builder_50.build();
-  encryption_cols5[path_ptr1] = encryption_col_builder_51.build();
-  testsNumber[numTests++] = 5;
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_5(
-      kFooterEncryptionKey);
-
-  // Add the properties to the appropriate configurations vectors
-  vector_of_encryption_configurations.push_back(
-      file_encryption_builder_5.column_properties(encryption_cols5)
-          ->footer_key_metadata("kf")
-          ->aad_prefix(fileName)
-          ->disable_store_aad_prefix_storage()
-          ->build());
-
-  // Test #6 - Encrypt two columns and the footer. Use AES_GCM_CTR_V1 algorithm.
-  testsNumber[numTests++] = 6;
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
-      encryption_cols6;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_60(path_ptr);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_61(path_ptr1);
-  encryption_col_builder_60.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_61.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols6[path_ptr] = encryption_col_builder_60.build();
-  encryption_cols6[path_ptr1] = encryption_col_builder_61.build();
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_6(
-      kFooterEncryptionKey);
-
-  // Add the properties to the appropriate configurations vectors
-  vector_of_encryption_configurations.push_back(
-      file_encryption_builder_6.footer_key_metadata("kf")
-          ->column_properties(encryption_cols6)
-          ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
-          ->build());
-
-  std::shared_ptr<parquet::StringKeyIdRetriever> string_kr =
-      std::make_shared<parquet::StringKeyIdRetriever>();
-  string_kr->PutKey("kf", kFooterEncryptionKey);
-  string_kr->PutKey("kc1", kColumnEncryptionKey1);
-  string_kr->PutKey("kc2", kColumnEncryptionKey2);
-  std::shared_ptr<parquet::DecryptionKeyRetriever> kr =
-      std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr);
-
-  parquet::FileDecryptionProperties::Builder decryption_properties_builder_0;
-  decryption_properties_builder_0.key_retriever(kr);
-  for (unsigned example_id = 0; example_id < vector_of_encryption_configurations.size();
-       ++example_id) {
-    /**********************************************************************************
-                               PARQUET WRITER EXAMPLE
-    **********************************************************************************/
-    std::stringstream ss;
-    ss << testsNumber[example_id];
-    std::string test_number_string = ss.str();
-    std::cout << "Write test " << test_number_string << std::endl;
-    ;
-    try {
-      // Create a local file output stream instance.
-      using FileClass = ::arrow::io::FileOutputStream;
-      std::shared_ptr<FileClass> out_file;
-      std::string file =
-          rootPath + fileName + std::string(test_number_string) + ".parquet.encrypted";
-      PARQUET_THROW_NOT_OK(FileClass::Open(file, &out_file));
-
-      // Setup the parquet schema
-      std::shared_ptr<GroupNode> schema = SetupSchema();
-
-      // Add writer properties
-      parquet::WriterProperties::Builder builder;
-      builder.compression(parquet::Compression::SNAPPY);
-
-      // Add the current encryption configuration to WriterProperties.
-      builder.encryption(vector_of_encryption_configurations[example_id]);
-
-      std::shared_ptr<parquet::WriterProperties> props = builder.build();
-
-      // Create a ParquetFileWriter instance
-      std::shared_ptr<parquet::ParquetFileWriter> file_writer =
-          parquet::ParquetFileWriter::Open(out_file, schema, props);
-
-      // Append a RowGroup with a specific number of rows.
-      parquet::RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
-
-      // Write the Bool column
-      parquet::BoolWriter* bool_writer =
-          static_cast<parquet::BoolWriter*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        bool value = ((i % 2) == 0) ? true : false;
-        bool_writer->WriteBatch(1, nullptr, nullptr, &value);
-      }
-
-      // Write the Int32 column
-      parquet::Int32Writer* int32_writer =
-          static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        int32_t value = i;
-        int32_writer->WriteBatch(1, nullptr, nullptr, &value);
-      }
-
-      // Write the Float column
-      parquet::FloatWriter* float_writer =
-          static_cast<parquet::FloatWriter*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        float value = static_cast<float>(i) * 1.1f;
-        float_writer->WriteBatch(1, nullptr, nullptr, &value);
-      }
-
-      // Write the Double column
-      parquet::DoubleWriter* double_writer =
-          static_cast<parquet::DoubleWriter*>(rg_writer->NextColumn());
-      for (int i = 0; i < NUM_ROWS_PER_ROW_GROUP; i++) {
-        double value = i * 1.1111111;
-        double_writer->WriteBatch(1, nullptr, nullptr, &value);
-      }
-
-      // Close the ParquetFileWriter
-      std::cout << "file_writer->Close " << std::endl;
-      file_writer->Close();
-
-      // Write the bytes to file
-      DCHECK(out_file->Close().ok());
-    } catch (const std::exception& e) {
-      std::cerr << "Parquet write error: " << e.what() << std::endl;
-      return;
-    }
-  }
-}
-
 int main(int argc, char** argv) {
   enum Operation { write, read };
   std::string rootPath;
@@ -567,9 +585,9 @@ int main(int argc, char** argv) {
   std::cout << "Root path is: " << rootPath << std::endl;
 
   if (operation == write) {
-    InteropWriteTests(rootPath);
+    InteropTestwriteEncryptedParquetFiles(rootPath);
   } else
-    InteropReadTests(rootPath);
+    InteropTestReadEncryptedParquetFiles(rootPath);
 
   return 0;
 }
