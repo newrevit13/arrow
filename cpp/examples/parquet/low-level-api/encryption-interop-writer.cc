@@ -21,7 +21,7 @@
 #include <memory>
 #include <sstream>
 
-#include <reader_writer_interop.h>
+#include <encryption_interop_tests.h>
 
 /*
  * This example contains tests for writing Parquet Files in C++ with encrypted columns
