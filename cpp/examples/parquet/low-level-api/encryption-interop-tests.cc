@@ -28,7 +28,7 @@
  * This example contains tests for writing and reading encrypted parquet Files
  * to be used for iterop testing.
  *
- * This tests use encryption configurations that cover the basic encryption modes.
+ * The tests use encryption configurations that cover the basic encryption modes.
  * More configurations are excpeted to be added.
  *
  * The write tests produce number of encrypted parquet files that can be read by java
