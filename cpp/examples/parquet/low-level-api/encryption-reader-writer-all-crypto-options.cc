@@ -36,7 +36,7 @@
  * The write sample produces number of parquet files, each encrypted with a different
  * encryption configuration as described below.
  * The name of each file is in the form of:
- *  sample<encryption config number>.parquet.encrypted.
+ * sample<encryption config number>.parquet.encrypted.
  *
  * The read sample creates a set of decryption configurations and then uses each of them
  * to read all encrypted files in the input directory.
@@ -119,8 +119,7 @@ void PrintDecryptionConfiguration(int configuration) {
                  " the key of one encrypted column and the footer key. Pass aad_prefix."
               << std::endl;
   else if (configuration == 4)
-    std::cout << "4: \n\nDecrypt using explicit column and footer keys. "
-                 " Pass aad_prefix."
+    std::cout << "4: \n\nDecrypt using explicit column and footer keys. Pass aad_prefix."
               << std::endl;
   else {
     std::cout << "Unknown configuraion" << std::endl;
