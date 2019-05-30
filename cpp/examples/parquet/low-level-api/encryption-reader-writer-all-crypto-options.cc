@@ -129,13 +129,14 @@ void PrintDecryptionConfiguration(int configuration) {
 }
 
 void InteropTestwriteEncryptedParquetFiles(std::string rootPath) {
-  // This vector will hold various encryption configuraions.
-  std::vector<std::shared_ptr<parquet::FileEncryptionProperties>>
-      vector_of_encryption_configurations;
 
   /**********************************************************************************
                          Creating a number of Encryption configurations
    **********************************************************************************/
+
+  // This vector will hold various encryption configuraions.
+  std::vector<std::shared_ptr<parquet::FileEncryptionProperties>>
+      vector_of_encryption_configurations;
 
   // Encryption configuration 1: Encrypt all columns and the footer with the same key.
   // (uniform encryption)
