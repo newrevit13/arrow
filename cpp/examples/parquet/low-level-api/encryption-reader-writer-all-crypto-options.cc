@@ -742,7 +742,7 @@ int main(int argc, char** argv) {
   std::string rootPath;
   Operation operation = write;
   if (argc < 3) {
-    std::cout << "Usage: encryption-doInterop-tests <read/write> <Path-to-parquet-files>"
+    std::cout << "Usage: encryption-reader-writer-all-crypto-options <read/write> <Path-to-parquet-files>"
               << std::endl;
     exit(1);
   }
