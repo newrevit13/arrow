@@ -21,17 +21,17 @@ add_executable(parquet-encryption-example low-level-api/encryption-reader-writer
 add_executable(parquet-encryption-interop-writer low-level-api/encryption-interop-writer.cc)
 add_executable(parquet-encryption-interop-reader low-level-api/encryption-interop-reader.cc)
 add_executable(parquet-encryption-legacy-reader low-level-api/encryption-legacy-reader.cc)
-add_executable(parquet-encryption-interop-tests low-level-api/encryption-interop-tests.cc)
+add_executable(parquet-encryption-reader-writer-all-crypto-options low-level-api/encryption-reader-writer-all-crypto-options.cc)
 target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
-target_include_directories(parquet-encryption-interop-tests PRIVATE low-level-api/)
+target_include_directories(parquet-encryption-reader-writer-all-crypto-options PRIVATE low-level-api/)
 target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
 target_include_directories(parquet-encryption-example PRIVATE low-level-api/)
 target_include_directories(parquet-encryption-interop-writer PRIVATE low-level-api/)
 target_include_directories(parquet-encryption-interop-reader PRIVATE low-level-api/)
 target_include_directories(parquet-encryption-legacy-reader PRIVATE low-level-api/)
-target_link_libraries(parquet-encryption-interop-tests parquet_static)
-target_link_libraries(parquet-encryption-interop-tests ssl)
-target_link_libraries(parquet-encryption-interop-tests crypto)
+target_link_libraries(parquet-encryption-reader-writer-all-crypto-options parquet_static)
+target_link_libraries(parquet-encryption-reader-writer-all-crypto-options ssl)
+target_link_libraries(parquet-encryption-reader-writer-all-crypto-options crypto)
 target_link_libraries(parquet-low-level-example parquet_static)
 target_link_libraries(parquet-low-level-example ssl)
 target_link_libraries(parquet-low-level-example crypto)
@@ -66,7 +66,7 @@ else()
 endif()
 
 add_dependencies(parquet
-  parquet-encryption-interop-tests
+  parquet-encryption-reader-writer-all-crypto-options
   parquet-low-level-example
   parquet-low-level-example2
   parquet-encryption-example
