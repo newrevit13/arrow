@@ -129,7 +129,6 @@ void PrintDecryptionConfiguration(int configuration) {
 }
 
 void InteropTestwriteEncryptedParquetFiles(std::string rootPath) {
-
   /**********************************************************************************
                          Creating a number of Encryption configurations
    **********************************************************************************/
@@ -742,7 +741,8 @@ int main(int argc, char** argv) {
   std::string rootPath;
   Operation operation = write;
   if (argc < 3) {
-    std::cout << "Usage: encryption-reader-writer-all-crypto-options <read/write> <Path-to-parquet-files>"
+    std::cout << "Usage: encryption-reader-writer-all-crypto-options <read/write> "
+                 "<Path-to-parquet-files>"
               << std::endl;
     exit(1);
   }
