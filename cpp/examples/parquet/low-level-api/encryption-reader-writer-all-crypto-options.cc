@@ -129,6 +129,7 @@ void PrintDecryptionConfiguration(int configuration) {
 }
 
 void InteropTestwriteEncryptedParquetFiles(std::string rootPath) {
+
   /**********************************************************************************
                          Creating a number of Encryption configurations
    **********************************************************************************/
